@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Friend Chat</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .chat-container { width: 100%; max-width: 100%; height: 100vh; background-color: #ffffff; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .chat-header { background-color: #0084ff; color: white; padding: 15px 20px; font-size: 1.2rem; font-weight: 600; text-align: center; }
+        
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background-color: #e5ddd5; }
+        
+        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+        .message-wrapper.received { align-self: flex-start; }
+        .message-wrapper.sent { align-self: flex-end; }
+        
+        .sender-name { font-size: 0.75rem; color: #555; margin-bottom: 4px; margin-left: 5px; }
+        .message-wrapper.sent .sender-name { display: none; }
+
+        .message { padding: 10px 15px; border-radius: 20px; line-height: 1.4; font-size: 0.95rem; word-wrap: break-word; }
+        .message-wrapper.received .message { background-color: #ffffff; color: #333; border-bottom-left-radius: 4px; }
+        .message-wrapper.sent .message { background-color: #dcf8c6; color: #333; border-bottom-right-radius: 4px; }
+        
+        .chat-input-container { display: flex; padding: 15px; background-color: #f0f0f0; border-top: 1px solid #ddd; }
+        .chat-input { flex: 1; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 1rem; }
+        .send-btn { background-color: #0084ff; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; margin-left: 10px; cursor: pointer; font-weight: bold; }
+
+        /* Auth Overlay Screen */
+        .auth-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #f0f2f5; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 30px; z-index: 10;
+        }
+        .auth-box { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 340px; text-align: center; }
+        .auth-box h2 { color: #333; margin-bottom: 10px; font-size: 1.5rem; }
+        .auth-box p { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+        .auth-input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 8px; outline: none; font-size: 1rem; }
+        .auth-btn { width: 100%; background-color: #0084ff; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .auth-error { color: #e74c3c; font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <!-- Auth Screen -->
+        <div class="auth-overlay" id="auth-overlay">
+            <div class="auth-box">
+                <h2>Welcome to Chat</h2>
+                <p>Enter a name to register or login</p>
+                <input type="text" id="auth-username" class="auth-input" placeholder="Username" autocomplete="off">
+                <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+                <button class="auth-btn" id="auth-btn">Enter Chat</button>
+                <div class="auth-error" id="auth-error"></div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div class="chat-header" id="chat-header-title">Live Friend Chat</div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-container">
+            <input type="text" id="message-input" class="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button class="send-btn" id="send-btn">➔</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Your exact Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1kqPJ9YCjlGCQFs-HTDaoFGFftYRzcUo",
+            authDomain: "chat-1b709.firebaseapp.com",
+            projectId: "chat-1b709",
+            storageBucket: "chat-1b709.firebasestorage.app/",
+            messagingSenderId: "448309614552",
+            appId: "1:448309614552:web:51f40e3c62b89ecf1f04ad1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let myName = "";
+
+        // UI Elements
+        const authOverlay = document.getElementById('auth-overlay');
+        const authUsername = document.getElementById('auth-username');
+        const authPassword = document.getElementById('auth-password');
+        const authBtn = document.getElementById('auth-btn');
+        const authError = document.getElementById('auth-error');
+        
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatHeaderTitle = document.getElementById('chat-header-title');
+
+        // Handle Login / Registration Logic
+        async function handleAuth() {
+            const inputName = authUsername.value.trim();
+            const inputPassword = authPassword.value;
+
+            if (!inputName || !inputPassword) {
+                authError.textContent = "Please fill in all fields.";
+                return;
+            }
+
+            // Using lowercase for database lookups to prevent "User" and "user" duplicates
+            const lookupName = inputName.toLowerCase(); 
+            authError.textContent = "Checking credentials...";
+
+            try {
+                const userDocRef = doc(db, "users", lookupName);
+                const userDoc = await getDoc(userDocRef);
+
+                if (!userDoc.exists()) {
+                    // Name is available -> Register new user
+                    await setDoc(userDocRef, {
+                        displayName: inputName,
+                        password: inputPassword
+                    });
+                    startChat(inputName);
+                } else {
+                    // Name is taken -> Verify Password
+                    const userData = userDoc.data();
+                    if (userData.password === inputPassword) {
+                        startChat(userData.displayName);
+                    } else {
+                        authError.textContent = "Wrong password for this user!";
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                authError.textContent = "Database error. Try again.";
+            }
+        }
+
+        // Run this when login/signup is successful
+        function startChat(authenticatedName) {
+            myName = authenticatedName;
+            authOverlay.style.display = 'none'; // Hide login screen
+            chatHeaderTitle.textContent = `Chatting as: ${myName}`;
+            
+            // Start listening for messages ONLY after logging in
+            listenForMessages();
+        }
+
+        // Live Chat Feed Listener
+        function listenForMessages() {
+            const q = query(collection(db, "messages"), orderBy("createdAt"));
+            onSnapshot(q, (snapshot) => {
+                chatMessages.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const isMe = data.sender === myName;
+                    
+                    const wrapper = document.createElement('div');
+                    wrapper.classList.add('message-wrapper', isMe ? 'sent' : 'received');
+                    
+                    const nameLabel = document.createElement('div');
+                    nameLabel.classList.add('sender-name');
+                    nameLabel.textContent = data.sender;
+                    
+                    const messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message');
+                    messageDiv.textContent = data.text;
+                    
+                    wrapper.appendChild(nameLabel);
+                    wrapper.appendChild(messageDiv);
+                    chatMessages.appendChild(wrapper);
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+
+        // Sending Message Handler
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text === '' || !myName) return;
+            messageInput.value = '';
+            
+            await addDoc(collection(db, "messages"), {
+                text: text,
+                sender: myName,
+                createdAt: serverTimestamp()
+            });
+        }
+
+        // Event Listeners for Auth
+        authBtn.addEventListener('click', handleAuth);
+        authPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuth(); });
+
+        // Event Listeners for Chatting
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+    </script>
+</body>
+</html>
