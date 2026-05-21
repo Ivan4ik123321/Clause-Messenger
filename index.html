@@ -2,54 +2,334 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Friend Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clause Messenger</title>
     <style>
+        /* CSS Variables for Dynamic Themes */
+        :root {
+            --body-bg: #f0f2f5;
+            --container-bg: #ffffff;
+            --header-bg: #0084ff;
+            --chat-bg: #e5ddd5;
+            --msg-rec-bg: #ffffff;
+            --msg-rec-text: #333333;
+            --msg-sent-bg: #dcf8c6;
+            --msg-sent-text: #333333;
+            --input-container-bg: #f0f0f0;
+            --input-bg: #ffffff;
+            --input-text: #333333;
+            --menu-bg: #ffffff;
+            --menu-text: #333333;
+            --text-muted: #555555;
+            --border-color: #dddddd;
+            --danger-color: #e74c3c;
+            --admin-color: #9b59b6;
+        }
+
+        [data-theme="dark"] {
+            --body-bg: #121212;
+            --container-bg: #1e1e1e;
+            --header-bg: #242526;
+            --chat-bg: #18191a;
+            --msg-rec-bg: #3a3b3c;
+            --msg-rec-text: #e4e6eb;
+            --msg-sent-bg: #0084ff;
+            --msg-sent-text: #ffffff;
+            --input-container-bg: #242526;
+            --input-bg: #3a3b3c;
+            --input-text: #e4e6eb;
+            --menu-bg: #242526;
+            --menu-text: #e4e6eb;
+            --text-muted: #b0b3b8;
+            --border-color: #3a3b3c;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; }
         
-        .chat-container { width: 100%; max-width: 100%; height: 100vh; background-color: #ffffff; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .chat-header { background-color: #0084ff; color: white; padding: 15px 20px; font-size: 1.2rem; font-weight: 600; text-align: center; }
+        /* HARD LOCK CONTAINER FOR ANDROID WEBVIEW */
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden !important;
+            position: fixed !important;
+            overscroll-behavior-y: none !important;
+        }
         
-        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background-color: #e5ddd5; }
+        body { 
+            background-color: var(--body-bg); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            transition: background-color 0.3s; 
+        }
+        
+        .chat-container { width: 100%; max-width: 100%; height: 100%; background-color: var(--container-bg); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        .chat-header { background-color: var(--header-bg); color: white; padding: 15px 20px; font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 15px; transition: background-color 0.3s; }
+        .menu-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .header-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .chat-messages { 
+            flex: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            background-color: var(--chat-bg); 
+            transition: background-color 0.3s;
+            overscroll-behavior-y: contain !important; 
+            -webkit-overflow-scrolling: touch; /* SMOOTH SCROLLING FOR WEBVIEW */
+        }
         
         .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
         .message-wrapper.received { align-self: flex-start; }
         .message-wrapper.sent { align-self: flex-end; }
         
-        .sender-name { font-size: 0.75rem; color: #555; margin-bottom: 4px; margin-left: 5px; }
+        .sender-name { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; margin-left: 5px; display: flex; align-items: center; }
         .message-wrapper.sent .sender-name { display: none; }
+        .message-wrapper.sent.is-special .sender-name { display: flex; } 
 
-        .message { padding: 10px 15px; border-radius: 20px; line-height: 1.4; font-size: 0.95rem; word-wrap: break-word; }
-        .message-wrapper.received .message { background-color: #ffffff; color: #333; border-bottom-left-radius: 4px; }
-        .message-wrapper.sent .message { background-color: #dcf8c6; color: #333; border-bottom-right-radius: 4px; }
+        .message { padding: 10px 15px; border-radius: 20px; line-height: 1.4; font-size: 0.95rem; word-wrap: break-word; border-left: 0 solid transparent; transition: border 0.1s ease, background-color 0.4s ease; display: flex; flex-direction: column; gap: 5px; cursor: pointer; position: relative; }
+        .message-wrapper.received .message { background-color: var(--msg-rec-bg); color: var(--msg-rec-text); border-bottom-left-radius: 4px; }
+        .message-wrapper.sent .message { background-color: var(--msg-sent-bg); color: var(--msg-sent-text); border-bottom-right-radius: 4px; }
         
-        .chat-input-container { display: flex; padding: 15px; background-color: #f0f0f0; border-top: 1px solid #ddd; }
-        .chat-input { flex: 1; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 1rem; }
-        .send-btn { background-color: #0084ff; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; margin-left: 10px; cursor: pointer; font-weight: bold; }
+        .message-img { max-width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain; background: rgba(0,0,0,0.05); }
+        .message-audio { max-width: 100%; width: 240px; margin-top: 4px; outline: none; }
+        
+        .highlight-gloom .message { border-left: 4px solid #f1c40f !important; }
+        .highlight-ivan4ik .message { border-left: 4px solid #9b59b6 !important; }
+        .highlight-danja .message { border-left: 4px solid #1abc9c !important; }
 
-        /* Auth Overlay Screen */
-        .auth-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #f0f2f5; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; padding: 30px; z-index: 10;
-        }
-        .auth-box { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 340px; text-align: center; }
-        .auth-box h2 { color: #333; margin-bottom: 10px; font-size: 1.5rem; }
-        .auth-box p { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
-        .auth-input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 8px; outline: none; font-size: 1rem; }
+        .user-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; color: white; }
+        .badge-gloom { background-color: #f1c40f; color: #121212; }
+        .badge-ivan4ik { background-color: #9b59b6; }
+        .badge-danja { background-color: #1abc9c; }
+
+        .message-actions { display: flex; gap: 8px; margin-top: 4px; padding: 0 5px; }
+        .message-wrapper.sent .message-actions { justify-content: flex-end; }
+        .action-btn { background: none; border: none; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
+        .action-btn:hover { color: var(--menu-text); text-decoration: underline; }
+        .edited-tag { font-size: 0.7rem; opacity: 0.6; font-style: italic; align-self: flex-end; margin-top: 2px; }
+
+        /* Reply Interface Styles */
+        .reply-preview-bar { display: none; align-items: center; justify-content: space-between; padding: 8px 15px; background-color: var(--input-container-bg); border-top: 1px solid var(--border-color); border-left: 4px solid #0084ff; font-size: 0.85rem; width: 100%; }
+        .reply-preview-content { display: flex; flex-direction: column; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .reply-preview-sender { font-weight: bold; color: #0084ff; font-size: 0.75rem; margin-bottom: 2px; }
+        .reply-preview-text { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+        .reply-cancel-btn { background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding-left: 10px; }
+
+        .reply-bubble-context { background: rgba(0, 0, 0, 0.06); border-left: 3px solid #0084ff; padding: 5px 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 5px; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+        [data-theme="dark"] .reply-bubble-context { background: rgba(255, 255, 255, 0.08); }
+        .reply-bubble-sender { font-weight: bold; color: #0084ff; font-size: 0.72rem; }
+        .reply-bubble-text { opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .chat-input-container { display: flex; align-items: center; padding: 12px 15px; background-color: var(--input-container-bg); border-top: 1px solid var(--border-color); transition: background-color 0.3s, border-color 0.3s; gap: 10px; width: 100%; }
+        .chat-input { flex: 1; min-width: 0; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 1rem; background-color: var(--input-bg); color: var(--input-text); }
+        .chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 8px; transition: color 0.2s, transform 0.1s, background-color 0.2s; flex-shrink: 0; border-radius: 50%; }
+        .icon-btn:hover:not(:disabled) { color: #0084ff; background-color: rgba(0, 132, 255, 0.1); }
+        .icon-btn:active:not(:disabled) { transform: scale(0.9); }
+        .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .icon-btn svg { width: 24px; height: 24px; }
+        
+        .icon-btn.recording { color: var(--danger-color) !important; background-color: rgba(231, 76, 60, 0.15); animation: recPulse 1.5s infinite ease-in-out; }
+        @keyframes recPulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        
+        .send-btn { background-color: #0084ff; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; font-weight: bold; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 1.1rem; }
+        .send-btn:disabled { background-color: #cccccc; cursor: not-allowed; }
+
+        /* Slide-Out Side Menu & Backdrop */
+        .menu-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 15; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .menu-backdrop.active { opacity: 1; pointer-events: auto; }
+
+        .side-menu { position: absolute; top: 0; left: -280px; width: 280px; height: 100%; background-color: var(--menu-bg); color: var(--menu-text); z-index: 20; transition: left 0.3s ease; display: flex; flex-direction: column; box-shadow: 4px 0 15px rgba(0,0,0,0.1); overscroll-behavior-y: contain; }
+        .side-menu.active { left: 0; }
+        .menu-header { padding: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .menu-close-btn { background: none; border: none; font-size: 1.4rem; color: var(--menu-text); cursor: pointer; }
+        .menu-content { padding: 20px; display: flex; flex-direction: column; gap: 25px; flex: 1; overflow-y: auto; }
+        .menu-section { display: flex; flex-direction: column; gap: 10px; }
+        .menu-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
+        
+        .menu-btn-secondary { width: 100%; background: none; border: 1px solid var(--border-color); color: var(--menu-text); padding: 10px; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.2s; }
+        .menu-btn-secondary:hover { background-color: rgba(0,0,0,0.05); }
+        .menu-btn-secondary.danger { color: var(--danger-color); border-color: var(--danger-color); }
+        .menu-btn-secondary.primary { color: #0084ff; border-color: #0084ff; }
+        
+        .inline-form { display: none; flex-direction: column; gap: 8px; background: var(--input-container-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .inline-form.active { display: flex; }
+        .inline-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); background-color: var(--input-bg); color: var(--input-text); border-radius: 4px; outline: none; font-size: 0.9rem; }
+        .inline-select { width: 100%; padding: 8px; border: 1px solid var(--border-color); background-color: var(--input-bg); color: var(--input-text); border-radius: 4px; outline: none; }
+        .inline-submit { background-color: #0084ff; color: white; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
+        .inline-submit.danger { background-color: var(--danger-color); }
+        .inline-status { font-size: 0.75rem; text-align: center; min-height: 14px; }
+
+        .theme-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: #0084ff; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .github-action-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background-color: #24292e; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; cursor: pointer; font-size: 0.95rem; width: 100%; }
+        .steam-action-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background-color: #1b2838; color: #c7d5e0; border: none; padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; cursor: pointer; font-size: 0.95rem; width: 100%; margin-top: 5px; transition: background-color 0.2s; }
+        
+        .version-tag { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 10px 0; font-weight: bold; }
+        
+        /* Overlay Styles */
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--body-bg); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 25px; transition: background-color 0.3s; }
+        .overlay-box { background: var(--container-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 360px; border: 1px solid var(--border-color); transition: background-color 0.3s, border-color 0.3s; }
+        
+        #auth-overlay { z-index: 30; text-align: center; }
+        #auth-overlay h2 { color: var(--menu-text); margin-bottom: 10px; font-size: 1.5rem; }
+        #auth-overlay p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; }
+        .auth-input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border-color); background-color: var(--input-bg); color: var(--input-text); border-radius: 8px; outline: none; font-size: 1rem; }
         .auth-btn { width: 100%; background-color: #0084ff; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .auth-error { color: #e74c3c; font-size: 0.85rem; margin-top: 10px; min-height: 18px; }
+
+        #rules-overlay { z-index: 40; }
+        #rules-overlay h2 { color: var(--menu-text); font-size: 1.4rem; text-align: center; margin-bottom: 6px; }
+        .rules-intro { font-size: 0.9rem; font-weight: 600; color: #0084ff; text-align: center; margin-bottom: 15px; }
+        .rules-container { display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 5px; margin-bottom: 20px; text-align: left; }
+        .rule-item { font-size: 0.85rem; line-height: 1.4; color: var(--menu-text); background-color: var(--input-container-bg); padding: 10px; border-radius: 6px; border-left: 3px solid #0084ff; }
+        .rule-num { font-weight: bold; color: #0084ff; margin-right: 4px; }
+        .rules-btn { width: 100%; background-color: #2ecc71; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+        
+        /* Auto-Update Lock Screen */
+        #update-overlay { z-index: 50; text-align: center; }
+        #update-overlay h2 { color: #0084ff; margin-bottom: 10px; font-size: 1.6rem; }
+        #update-overlay p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5; }
+        .update-btn { width: 100%; background-color: #0084ff; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+        /* Admin Panel Styles */
+        .admin-section { display: none; border-left: 3px solid var(--admin-color); padding-left: 10px; }
+        .admin-section.active { display: flex; }
+        .admin-label { color: var(--admin-color) !important; }
+
+        /* Custom Admin Report Box Element Layouts */
+        .admin-report-card { background-color: var(--input-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+        .admin-report-card .report-text { font-style: italic; opacity: 0.9; background-color: rgba(0,0,0,0.04); padding: 6px; border-radius: 4px; word-break: break-all; }
+        .admin-report-card .report-actions { display: flex; gap: 6px; margin-top: 4px; }
+        .admin-report-card .admin-report-btn { flex: 1; padding: 6px; font-size: 0.75rem; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; text-align: center; }
+        .admin-report-card .admin-report-btn.btn-delete { background-color: var(--danger-color); }
+        .admin-report-card .admin-report-btn.btn-dismiss { background-color: var(--text-muted); }
     </style>
 </head>
 <body>
 
     <div class="chat-container">
-        <!-- Auth Screen -->
-        <div class="auth-overlay" id="auth-overlay">
-            <div class="auth-box">
-                <h2>Welcome to Chat</h2>
-                <p>Enter a name to register or login</p>
+        <div class="menu-backdrop" id="menu-backdrop"></div>
+
+        <div class="side-menu" id="side-menu">
+            <div class="menu-header">
+                <span>Options</span>
+                <button class="menu-close-btn" id="menu-close-btn">✕</button>
+            </div>
+            <div class="menu-content">
+                
+                <div class="menu-section">
+                    <div class="menu-label">Chat Navigation</div>
+                    <button class="menu-btn-secondary" id="global-chat-btn">🌍 Global Chat</button>
+                    <button class="menu-btn-secondary primary" id="new-dm-btn">💬 Start Direct Message</button>
+                    
+                    <button class="menu-btn-secondary" id="toggle-recent-dms-btn">Recent DMs <span>▼</span></button>
+                    <div class="inline-form" id="recent-dms-list" style="max-height: 200px; overflow-y: auto;">
+                        <div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No recent DMs</div>
+                    </div>
+                </div>
+
+                <div class="menu-section admin-section" id="admin-panel">
+                    <div class="menu-label admin-label">Admin Controls</div>
+                    
+                    <button class="menu-btn-secondary" id="toggle-reports-btn">Active Reports (<span id="report-count-badge">0</span>) <span>▼</span></button>
+                    <div class="inline-form" id="reports-inline-list" style="max-height: 250px; overflow-y: auto;">
+                        <div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No pending reports.</div>
+                    </div>
+
+                    <button class="menu-btn-secondary" id="toggle-admin-action-btn">Manage Users <span>▼</span></button>
+                    <div class="inline-form" id="admin-action-form">
+                        <input type="text" id="admin-target-user" class="inline-input" placeholder="Exact Username">
+                        <select id="admin-action-type" class="inline-select">
+                            <option value="mute">Mute User</option>
+                            <option value="unmute">Unmute User</option>
+                            <option value="ban">Ban User</option>
+                            <option value="unban">Unban User</option>
+                        </select>
+                        <button class="inline-submit danger" id="admin-execute-btn">Execute Action</button>
+                        <div class="inline-status" id="admin-status-msg"></div>
+                    </div>
+
+                    <button class="menu-btn-secondary" id="toggle-version-form-btn">Update Version <span>▼</span></button>
+                    <div class="inline-form" id="version-form">
+                        <input type="text" id="admin-version-input" class="inline-input" placeholder="e.g. v5.4">
+                        <button class="inline-submit" id="admin-version-btn">Push Update</button>
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-label">Account Settings</div>
+                    <button class="menu-btn-secondary" id="toggle-pw-form-btn">Change Password <span>▼</span></button>
+                    <div class="inline-form" id="pw-inline-form">
+                        <input type="password" id="new-pw-input" class="inline-input" placeholder="New Password">
+                        <button class="inline-submit" id="submit-new-pw-btn">Update Password</button>
+                        <div class="inline-status" id="pw-status-msg"></div>
+                    </div>
+                    <button class="menu-btn-secondary danger" id="logout-btn">Logout</button>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-label">Preferences</div>
+                    <div class="theme-row">
+                        <span>Dark Mode</span>
+                        <label class="switch">
+                            <input type="checkbox" id="theme-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-label">Project Links</div>
+                    <button class="github-action-btn" id="github-btn">🐙 GitHub Repository</button>
+                    <button class="steam-action-btn" id="steam-btn">🎮 Gift us a game on Steam</button>
+                </div>
+                
+                <div class="version-tag" id="app-version-display">Version: Loading...</div>
+            </div>
+        </div>
+
+        <div class="overlay-screen" id="update-overlay" style="display: none;">
+            <div class="overlay-box">
+                <h2>Update Required</h2>
+                <p id="new-version-text">A new version of Clause Messenger has been released!</p>
+                <p style="font-size: 0.85rem; margin-bottom: 25px;">Please download the latest APK to continue using the app safely.</p>
+                <button class="update-btn" id="download-update-btn">
+                    ↓ Download Update
+                </button>
+            </div>
+        </div>
+
+        <div class="overlay-screen" id="rules-overlay" style="display: none;">
+            <div class="overlay-box">
+                <h2>Clause Messenger Rules</h2>
+                <p class="rules-intro">Our app is safe, so it cant be without rules!</p>
+                <div class="rules-container">
+                    <div class="rule-item"><span class="rule-num">1.1</span>not knowing the rules is not helping you to avoid the ban or mute.</div>
+                    <div class="rule-item"><span class="rule-num">1.2</span>no spamming, 18+ content and bad words, really, no.</div>
+                    <div class="rule-item"><span class="rule-num">1.3</span>we are not allowing you use any of old versions of clause to crash it, kill servers, spam as an admin etc.</div>
+                    <div class="rule-item"><span class="rule-num">1.4</span>Administration can choose their way to punish you by themselves.</div>
+                    <div class="rule-item"><span class="rule-num">1.5</span>Rules are important to read when you first time open clause messenger.</div>
+                </div>
+                <button class="rules-btn" id="rules-accept-btn">I Read & Agree</button>
+            </div>
+        </div>
+
+        <div class="overlay-screen" id="auth-overlay">
+            <div class="overlay-box">
+                <h2>Welcome to Clause</h2>
+                <p id="auth-subtitle">Enter a name to register or login</p>
                 <input type="text" id="auth-username" class="auth-input" placeholder="Username" autocomplete="off">
                 <input type="password" id="auth-password" class="auth-input" placeholder="Password">
                 <button class="auth-btn" id="auth-btn">Enter Chat</button>
@@ -57,10 +337,40 @@
             </div>
         </div>
 
-        <!-- Chat Screen -->
-        <div class="chat-header" id="chat-header-title">Live Friend Chat</div>
+        <div class="chat-header">
+            <button class="menu-btn" id="menu-btn">☰</button>
+            <div class="header-title" id="chat-header-title">Clause Messenger</div>
+        </div>
         <div class="chat-messages" id="chat-messages"></div>
+
+        <div class="reply-preview-bar" id="reply-preview-bar">
+            <div class="reply-preview-content">
+                <span class="reply-preview-sender" id="reply-preview-sender">Replying to User</span>
+                <span class="reply-preview-text" id="reply-preview-text">Selected context message text string...</span>
+            </div>
+            <button class="reply-cancel-btn" id="reply-cancel-btn">✕</button>
+        </div>
+
         <div class="chat-input-container">
+            <input type="file" id="image-input" accept="image/*" style="display: none;">
+            
+            <button class="icon-btn" id="image-btn" title="Send an Image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+            </button>
+
+            <button class="icon-btn" id="voice-btn" title="Record Voice Message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+            </button>
+
             <input type="text" id="message-input" class="chat-input" placeholder="Type a message..." autocomplete="off">
             <button class="send-btn" id="send-btn">➔</button>
         </div>
@@ -68,9 +378,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Your exact Firebase config
         const firebaseConfig = {
             apiKey: "AIzaSyB1kqPJ9YCjlGCQFs-HTDaoFGFftYRzcUo",
             authDomain: "chat-1b709.firebaseapp.com",
@@ -84,77 +393,409 @@
         const db = getFirestore(app);
 
         let myName = "";
+        let isMuted = false;
+        let currentChatMode = "global"; 
+        let unsubscribeMessages = null;
+        let unsubscribeUserDoc = null;
+        let unsubscribeReports = null;
+        let loadedAppVersion = null; // Used to track and force app updates
+        let replyTargetMessage = null; // Stores { id, text, sender } references
 
-        // UI Elements
+        const specialUsers = {
+            "gloom games": { title: "official", badgeClass: "badge-gloom", wrapperClass: "highlight-gloom" },
+            "ivan4ik": { title: "Developer", badgeClass: "badge-ivan4ik", wrapperClass: "highlight-ivan4ik" },
+            "danja": { title: "admin/idea guy", badgeClass: "badge-danja", wrapperClass: "highlight-danja" }
+        };
+
+        // DOM Elements
+        const rulesOverlay = document.getElementById('rules-overlay');
+        const rulesAcceptBtn = document.getElementById('rules-accept-btn');
+        const updateOverlay = document.getElementById('update-overlay');
+        const newVersionText = document.getElementById('new-version-text');
+        const downloadUpdateBtn = document.getElementById('download-update-btn');
         const authOverlay = document.getElementById('auth-overlay');
         const authUsername = document.getElementById('auth-username');
         const authPassword = document.getElementById('auth-password');
         const authBtn = document.getElementById('auth-btn');
         const authError = document.getElementById('auth-error');
+        const authSubtitle = document.getElementById('auth-subtitle');
         
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
+        const imageBtn = document.getElementById('image-btn');
+        const imageInput = document.getElementById('image-input');
+        const voiceBtn = document.getElementById('voice-btn');
         const chatMessages = document.getElementById('chat-messages');
         const chatHeaderTitle = document.getElementById('chat-header-title');
 
-        // Handle Login / Registration Logic
-        async function handleAuth() {
+        const menuBtn = document.getElementById('menu-btn');
+        const sideMenu = document.getElementById('side-menu');
+        const menuBackdrop = document.getElementById('menu-backdrop');
+        const menuCloseBtn = document.getElementById('menu-close-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+        
+        const logoutBtn = document.getElementById('logout-btn');
+        const togglePwFormBtn = document.getElementById('toggle-pw-form-btn');
+        const pwInlineForm = document.getElementById('pw-inline-form');
+        const newPwInput = document.getElementById('new-pw-input');
+        const submitNewPwBtn = document.getElementById('submit-new-pw-btn');
+        const pwStatusMsg = document.getElementById('pw-status-msg');
+        const githubBtn = document.getElementById('github-btn');
+        const steamBtn = document.getElementById('steam-btn');
+
+        // Navigation Elements
+        const globalChatBtn = document.getElementById('global-chat-btn');
+        const newDmBtn = document.getElementById('new-dm-btn');
+        const toggleRecentDmsBtn = document.getElementById('toggle-recent-dms-btn');
+        const recentDmsList = document.getElementById('recent-dms-list');
+
+        // Admin Elements
+        const adminPanel = document.getElementById('admin-panel');
+        const toggleAdminActionBtn = document.getElementById('toggle-admin-action-btn');
+        const adminActionForm = document.getElementById('admin-action-form');
+        const adminTargetUser = document.getElementById('admin-target-user');
+        const adminActionType = document.getElementById('admin-action-type');
+        const adminExecuteBtn = document.getElementById('admin-execute-btn');
+        const adminStatusMsg = document.getElementById('admin-status-msg');
+        
+        const toggleVersionFormBtn = document.getElementById('toggle-version-form-btn');
+        const versionForm = document.getElementById('version-form');
+        const adminVersionInput = document.getElementById('admin-version-input');
+        const adminVersionBtn = document.getElementById('admin-version-btn');
+        const appVersionDisplay = document.getElementById('app-version-display');
+
+        const toggleReportsBtn = document.getElementById('toggle-reports-btn');
+        const reportsInlineList = document.getElementById('reports-inline-list');
+        const reportCountBadge = document.getElementById('report-count-badge');
+
+        // Reply System Layout Nodes
+        const replyPreviewBar = document.getElementById('reply-preview-bar');
+        const replyPreviewSender = document.getElementById('reply-preview-sender');
+        const replyPreviewText = document.getElementById('reply-preview-text');
+        const replyCancelBtn = document.getElementById('reply-cancel-btn');
+
+        // Audio Recorder State
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let activeAudioStream = null;
+
+        // --- WEBVIEW INTERACTION FIX: ANTI PULL-TO-REFRESH MECHANISM ---
+        let startTouchY = 0;
+        chatMessages.addEventListener('touchstart', (e) => {
+            startTouchY = e.touches[0].clientY;
+        }, { passive: true });
+
+        chatMessages.addEventListener('touchmove', (e) => {
+            const currentTouchY = e.touches[0].clientY;
+            const pullingDown = currentTouchY > startTouchY; // True if finger moves down (trying to scroll UP)
+
+            if (pullingDown) {
+                if (chatMessages.scrollTop === 0) {
+                    // Absolute top block: kill event completely to reject native refresh triggers
+                    e.preventDefault();
+                } else {
+                    // Mid-scroll shield: stop event bubble so the container element consumes the movement entirely
+                    e.stopPropagation();
+                }
+            }
+        }, { passive: false });
+
+        // Same fix injected into side-menu sidebar context
+        sideMenu.addEventListener('touchmove', (e) => {
+            if (sideMenu.scrollTop === 0) e.preventDefault();
+            else e.stopPropagation();
+        }, { passive: false });
+
+        // --- Rules Validation ---
+        if (!localStorage.getItem('clause_rules_accepted')) {
+            rulesOverlay.style.display = 'flex';
+        }
+        rulesAcceptBtn.addEventListener('click', () => {
+            localStorage.setItem('clause_rules_accepted', 'true');
+            rulesOverlay.style.display = 'none';
+        });
+
+        // --- Theme Engine ---
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        themeToggle.checked = (savedTheme === 'dark');
+        themeToggle.addEventListener('change', () => {
+            const targetTheme = themeToggle.checked ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', targetTheme);
+            localStorage.setItem('theme', targetTheme);
+        });
+
+        // --- Menu Logic ---
+        function toggleMenu(open) {
+            sideMenu.classList.toggle('active', open);
+            menuBackdrop.classList.toggle('active', open);
+            if(!open) {
+                pwInlineForm.classList.remove('active');
+                adminActionForm.classList.remove('active');
+                versionForm.classList.remove('active');
+                reportsInlineList.classList.remove('active');
+                recentDmsList.classList.remove('active');
+            }
+        }
+        menuBtn.addEventListener('click', () => toggleMenu(true));
+        menuCloseBtn.addEventListener('click', () => toggleMenu(false));
+        menuBackdrop.addEventListener('click', () => toggleMenu(false));
+
+        togglePwFormBtn.addEventListener('click', () => pwInlineForm.classList.toggle('active'));
+        toggleAdminActionBtn.addEventListener('click', () => adminActionForm.classList.toggle('active'));
+        toggleVersionFormBtn.addEventListener('click', () => versionForm.classList.toggle('active'));
+        toggleReportsBtn.addEventListener('click', () => reportsInlineList.classList.toggle('active'));
+        toggleRecentDmsBtn.addEventListener('click', () => recentDmsList.classList.toggle('active'));
+
+        githubBtn.addEventListener('click', () => window.open('https://github.com/Ivan4ik123321/Clause-Messenger', '_system'));
+        steamBtn.addEventListener('click', () => window.open('https://store.steampowered.com/wishlist/profiles/76561199698088674/', '_system'));
+        downloadUpdateBtn.addEventListener('click', () => window.open('https://github.com/Ivan4ik123321/Clause-Messenger', '_system'));
+
+        // --- Global Force-Update Listener ---
+        onSnapshot(doc(db, "config", "app"), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().version) {
+                const dbVersion = docSnap.data().version;
+                
+                // Set initial run version
+                if (loadedAppVersion === null) {
+                    loadedAppVersion = dbVersion;
+                    appVersionDisplay.textContent = `Current Version: ${loadedAppVersion}`;
+                } 
+                // If the version in database changes while they are using the app (or upon reopening an old apk)
+                else if (loadedAppVersion !== dbVersion) {
+                    updateOverlay.style.display = 'flex';
+                    newVersionText.textContent = `Version ${dbVersion} is now available!`;
+                    // Hard lock interface inputs
+                    messageInput.disabled = true;
+                    sendBtn.disabled = true;
+                    toggleMenu(false);
+                }
+            } else {
+                // Failsafe generation for brand new database initializations
+                if (loadedAppVersion === null) loadedAppVersion = "v5.3";
+                appVersionDisplay.textContent = `Current Version: v5.3`;
+                setDoc(doc(db, "config", "app"), { version: "v5.3" }, {merge: true});
+            }
+        });
+
+        // --- Authentication & Session ---
+        async function handleAuth(isAutoLogin = false) {
             const inputName = authUsername.value.trim();
             const inputPassword = authPassword.value;
 
             if (!inputName || !inputPassword) {
+                authError.style.color = "#e74c3c";
                 authError.textContent = "Please fill in all fields.";
                 return;
             }
 
-            // Using lowercase for database lookups to prevent "User" and "user" duplicates
             const lookupName = inputName.toLowerCase(); 
-            authError.textContent = "Checking credentials...";
+            authError.style.color = "var(--text-muted)";
+            authError.textContent = "Verifying identity...";
 
             try {
                 const userDocRef = doc(db, "users", lookupName);
                 const userDoc = await getDoc(userDocRef);
 
                 if (!userDoc.exists()) {
-                    // Name is available -> Register new user
+                    if (isAutoLogin) return clearSession();
                     await setDoc(userDocRef, {
                         displayName: inputName,
-                        password: inputPassword
+                        password: inputPassword,
+                        isBanned: false,
+                        isMuted: false,
+                        recentDMs: []
                     });
-                    startChat(inputName);
+                    saveSession(inputName, inputPassword);
+                    startSession(inputName);
                 } else {
-                    // Name is taken -> Verify Password
                     const userData = userDoc.data();
+                    if (userData.isBanned) {
+                        authError.style.color = "#e74c3c";
+                        authError.textContent = "This account has been banned from Clause.";
+                        return clearSession();
+                    }
                     if (userData.password === inputPassword) {
-                        startChat(userData.displayName);
+                        saveSession(userData.displayName, inputPassword);
+                        startSession(userData.displayName);
                     } else {
+                        clearSession();
+                        authError.style.color = "#e74c3c";
                         authError.textContent = "Wrong password for this user!";
                     }
                 }
             } catch (error) {
                 console.error(error);
-                authError.textContent = "Database error. Try again.";
+                authError.style.color = "#e74c3c";
+                authError.textContent = "Connection issue. Try again.";
             }
         }
 
-        // Run this when login/signup is successful
-        function startChat(authenticatedName) {
+        function saveSession(username, password) {
+            localStorage.setItem('clause_username', username);
+            localStorage.setItem('clause_password', password);
+        }
+
+        function clearSession() {
+            localStorage.removeItem('clause_username');
+            localStorage.removeItem('clause_password');
+            authOverlay.style.display = 'flex';
+            authUsername.value = "";
+            authPassword.value = "";
+            authSubtitle.textContent = "Enter a name to register or login";
+            authError.textContent = "";
+            if(unsubscribeUserDoc) unsubscribeUserDoc();
+            if(unsubscribeMessages) unsubscribeMessages();
+            if(unsubscribeReports) unsubscribeReports();
+            adminPanel.classList.remove('active');
+            clearReplyMode();
+        }
+
+        function startSession(authenticatedName) {
             myName = authenticatedName;
-            authOverlay.style.display = 'none'; // Hide login screen
-            chatHeaderTitle.textContent = `Chatting as: ${myName}`;
+            authOverlay.style.display = 'none';
+            chatHeaderTitle.textContent = `Clause Messenger`;
             
-            // Start listening for messages ONLY after logging in
+            if (specialUsers[myName.toLowerCase()]) {
+                adminPanel.classList.add('active');
+                listenForReports();
+            }
+
+            unsubscribeUserDoc = onSnapshot(doc(db, "users", myName.toLowerCase()), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.isBanned) {
+                        alert("You have been banned by an administrator.");
+                        window.location.reload();
+                    }
+                    isMuted = data.isMuted || false;
+                    
+                    if (isMuted) {
+                        messageInput.disabled = true;
+                        sendBtn.disabled = true;
+                        imageBtn.disabled = true;
+                        voiceBtn.disabled = true;
+                        messageInput.placeholder = "You have been muted.";
+                        clearReplyMode();
+                    } else {
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        imageBtn.disabled = false;
+                        voiceBtn.disabled = false;
+                        messageInput.placeholder = "Type a message...";
+                    }
+
+                    // --- Render Recent DMs ---
+                    if (data.recentDMs && data.recentDMs.length > 0) {
+                        recentDmsList.innerHTML = ''; 
+                        data.recentDMs.forEach(dmUser => {
+                            const btn = document.createElement('button');
+                            btn.className = 'menu-btn-secondary';
+                            btn.style.padding = '8px';
+                            btn.textContent = `👤 ${dmUser}`;
+                            btn.onclick = () => {
+                                currentChatMode = getDmRoomId(myName, dmUser);
+                                chatHeaderTitle.textContent = `DM: ${dmUser}`;
+                                listenForMessages();
+                                toggleMenu(false);
+                                clearReplyMode();
+                            };
+                            recentDmsList.appendChild(btn);
+                        });
+                    } else {
+                        recentDmsList.innerHTML = '<div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No recent DMs</div>';
+                    }
+                }
+            });
+
             listenForMessages();
         }
 
-        // Live Chat Feed Listener
+        // --- Chat Context Switching (Global vs DM) ---
+        function getDmRoomId(u1, u2) {
+            return [u1.toLowerCase(), u2.toLowerCase()].sort().join("_");
+        }
+
+        globalChatBtn.addEventListener('click', () => {
+            currentChatMode = "global";
+            chatHeaderTitle.textContent = `Clause Messenger`;
+            listenForMessages();
+            toggleMenu(false);
+            clearReplyMode();
+        });
+
+        newDmBtn.addEventListener('click', async () => {
+            const target = prompt("Enter the exact username of the person you want to message:");
+            if (!target) return;
+            const targetLower = target.toLowerCase();
+            
+            if (targetLower === myName.toLowerCase()) {
+                alert("You cannot DM yourself!");
+                return;
+            }
+
+            try {
+                const targetDoc = await getDoc(doc(db, "users", targetLower));
+                if (!targetDoc.exists()) {
+                    alert("User not found. Check spelling.");
+                    return;
+                }
+                
+                // Save the connection to both users' profiles
+                await updateDoc(doc(db, "users", myName.toLowerCase()), {
+                    recentDMs: arrayUnion(targetDoc.data().displayName)
+                });
+                await updateDoc(doc(db, "users", targetLower), {
+                    recentDMs: arrayUnion(myName)
+                });
+                
+                currentChatMode = getDmRoomId(myName, targetLower);
+                chatHeaderTitle.textContent = `DM: ${targetDoc.data().displayName}`;
+                listenForMessages();
+                toggleMenu(false);
+                clearReplyMode();
+            } catch(e) {
+                console.error("DM Error:", e);
+            }
+        });
+
+        // --- Reply Engine State Pipeline Controls ---
+        function triggerReplyMode(id, cleanText, sender) {
+            if (isMuted) return;
+            replyTargetMessage = { id: id, text: cleanText, sender: sender };
+            replyPreviewSender.textContent = `Replying to ${sender}`;
+            replyPreviewText.textContent = cleanText;
+            replyPreviewBar.style.display = 'flex';
+            messageInput.focus();
+        }
+
+        function clearReplyMode() {
+            replyTargetMessage = null;
+            replyPreviewBar.style.display = 'none';
+        }
+        replyCancelBtn.addEventListener('click', clearReplyMode);
+
+        // --- Core Messaging Stream ---
         function listenForMessages() {
-            const q = query(collection(db, "messages"), orderBy("createdAt"));
-            onSnapshot(q, (snapshot) => {
+            if (unsubscribeMessages) unsubscribeMessages();
+            chatMessages.innerHTML = ''; 
+
+            let colRef = currentChatMode === "global" 
+                ? collection(db, "messages") 
+                : collection(db, "dms", currentChatMode, "messages");
+
+            const q = query(colRef, orderBy("createdAt"));
+            
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 chatMessages.innerHTML = '';
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const messageId = docSnap.id;
                     const isMe = data.sender === myName;
+                    
+                    const senderLower = data.sender.toLowerCase();
+                    const myNameLower = myName.toLowerCase();
+                    const specialConfig = specialUsers[senderLower];
                     
                     const wrapper = document.createElement('div');
                     wrapper.classList.add('message-wrapper', isMe ? 'sent' : 'received');
@@ -163,38 +804,406 @@
                     nameLabel.classList.add('sender-name');
                     nameLabel.textContent = data.sender;
                     
+                    if (specialConfig) {
+                        wrapper.classList.add('is-special', specialConfig.wrapperClass);
+                        const titleBadge = document.createElement('span');
+                        titleBadge.classList.add('user-badge', specialConfig.badgeClass);
+                        titleBadge.textContent = specialConfig.title;
+                        nameLabel.appendChild(titleBadge);
+                    }
+                    
                     const messageDiv = document.createElement('div');
                     messageDiv.classList.add('message');
-                    messageDiv.textContent = data.text;
+                    messageDiv.id = `msg-bubble-${messageId}`; // Unique id target for scroll interpolation
+
+                    // Construct nested quote block if this item is a reply payload
+                    if (data.replyTo) {
+                        const replyContextBox = document.createElement('div');
+                        replyContextBox.classList.add('reply-bubble-context');
+                        
+                        const contextSender = document.createElement('span');
+                        contextSender.classList.add('reply-bubble-sender');
+                        contextSender.textContent = data.replyTo.sender;
+
+                        const contextText = document.createElement('span');
+                        contextText.classList.add('reply-bubble-text');
+                        contextText.textContent = data.replyTo.text;
+
+                        replyContextBox.appendChild(contextSender);
+                        replyContextBox.appendChild(contextText);
+
+                        // Scroll back action hook
+                        replyContextBox.addEventListener('click', (e) => {
+                            e.stopPropagation(); // Protect message bubble root trigger loops
+                            const targetBubble = document.getElementById(`msg-bubble-${data.replyTo.id}`);
+                            if (targetBubble) {
+                                targetBubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                const fallbackColor = targetBubble.style.backgroundColor;
+                                targetBubble.style.backgroundColor = 'rgba(0, 132, 255, 0.4)';
+                                setTimeout(() => { targetBubble.style.backgroundColor = fallbackColor; }, 800);
+                            } else {
+                                alert("Original message could not be located in current screen history buffer.");
+                            }
+                        });
+
+                        messageDiv.appendChild(replyContextBox);
+                    }
+
+                    if (data.text) {
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = data.text;
+                        messageDiv.appendChild(textSpan);
+                    }
+
+                    if (data.imageUrl) {
+                        const img = document.createElement('img');
+                        img.src = data.imageUrl;
+                        img.classList.add('message-img');
+                        messageDiv.appendChild(img);
+                    }
+
+                    if (data.audioUrl) {
+                        const audio = document.createElement('audio');
+                        audio.src = data.audioUrl;
+                        audio.controls = true;
+                        audio.classList.add('message-audio');
+                        messageDiv.appendChild(audio);
+                    }
+
+                    if (data.isEdited) {
+                        const editedTag = document.createElement('span');
+                        editedTag.classList.add('edited-tag');
+                        editedTag.textContent = '(edited)';
+                        messageDiv.appendChild(editedTag);
+                    }
                     
                     wrapper.appendChild(nameLabel);
                     wrapper.appendChild(messageDiv);
+
+                    // Click message space anywhere to directly set as reply context target
+                    messageDiv.addEventListener('click', (e) => {
+                        // Abort if tapping functional layout widgets
+                        if (e.target.closest('button') || e.target.closest('audio') || e.target.closest('img')) return;
+                        
+                        let fallbackSummaryText = data.text || (data.imageUrl ? "🖼️ Image" : "🎵 Voice Message");
+                        triggerReplyMode(messageId, fallbackSummaryText, data.sender);
+                    });
+
+                    const iAmAdmin = !!specialUsers[myNameLower];
+                    const senderIsAdmin = !!specialUsers[senderLower];
+                    const canEdit = isMe && !isMuted;
+                    const canDelete = isMe || (iAmAdmin && !senderIsAdmin);
+                    const canReport = !isMe && !isMuted;
+
+                    if (canEdit || canDelete || canReport) {
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.classList.add('message-actions');
+
+                        if (canEdit) {
+                            const editBtn = document.createElement('button');
+                            editBtn.classList.add('action-btn');
+                            editBtn.textContent = 'Edit';
+                            editBtn.onclick = (e) => { e.stopPropagation(); editMessage(messageId, data.text || ""); };
+                            actionsDiv.appendChild(editBtn);
+                        }
+
+                        if (canDelete) {
+                            const delBtn = document.createElement('button');
+                            delBtn.classList.add('action-btn');
+                            delBtn.textContent = 'Delete';
+                            delBtn.onclick = (e) => { e.stopPropagation(); deleteMessage(messageId); };
+                            actionsDiv.appendChild(delBtn);
+                        }
+
+                        if (canReport) {
+                            const reportBtn = document.createElement('button');
+                            reportBtn.classList.add('action-btn');
+                            reportBtn.textContent = 'Report';
+                            reportBtn.onclick = (e) => { e.stopPropagation(); reportMessage(messageId, data.text || "[Media Payload Content]", currentChatMode, data.sender); };
+                            actionsDiv.appendChild(reportBtn);
+                        }
+
+                        wrapper.appendChild(actionsDiv);
+                    }
+
                     chatMessages.appendChild(wrapper);
                 });
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             });
         }
 
-        // Sending Message Handler
+        async function pushPayloadToDB(payloadObj) {
+            if(isMuted) return;
+            
+            // Handle active reply routing mapping insertion logic
+            if (replyTargetMessage) {
+                payloadObj.replyTo = {
+                    id: replyTargetMessage.id,
+                    text: replyTargetMessage.text,
+                    sender: replyTargetMessage.sender
+                };
+                clearReplyMode();
+            }
+
+            const targetCol = currentChatMode === "global" ? collection(db, "messages") : collection(db, "dms", currentChatMode, "messages");
+            await addDoc(targetCol, payloadObj);
+        }
+
         async function sendMessage() {
+            if(isMuted) return;
             const text = messageInput.value.trim();
             if (text === '' || !myName) return;
             messageInput.value = '';
             
-            await addDoc(collection(db, "messages"), {
+            await pushPayloadToDB({
                 text: text,
                 sender: myName,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                isEdited: false
             });
         }
 
-        // Event Listeners for Auth
-        authBtn.addEventListener('click', handleAuth);
-        authPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuth(); });
+        function processAndUploadImage(file) {
+            if (!file || !myName || isMuted) return;
+            
+            const text = messageInput.value.trim() || "🖼️ Sent an image";
+            messageInput.value = '';
 
-        // Event Listeners for Chatting
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const base64String = event.target.result;
+                if (file.size < 1048576) {
+                    pushPayloadToDB({ text: text, imageUrl: base64String, sender: myName, createdAt: serverTimestamp(), isEdited: false });
+                } else {
+                    const img = new Image();
+                    img.src = base64String;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width, h = img.height;
+                        if (w > h) { if (w > 800) { h *= 800 / w; w = 800; } } 
+                        else { if (h > 800) { w *= 800 / h; h = 800; } }
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        pushPayloadToDB({ text: text, imageUrl: canvas.toDataURL('image/jpeg', 0.7), sender: myName, createdAt: serverTimestamp(), isEdited: false });
+                    };
+                }
+            };
+        }
+
+        imageBtn.addEventListener('click', () => { if(!isMuted) imageInput.click(); });
+        imageInput.addEventListener('change', (e) => {
+            processAndUploadImage(e.target.files[0]);
+            imageInput.value = ''; 
+        });
+
+        async function handleVoiceRecordingToggle() {
+            if(isMuted) return;
+            if (!mediaRecorder || mediaRecorder.state === "inactive") {
+                try {
+                    activeAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioChunks = [];
+                    mediaRecorder = new MediaRecorder(activeAudioStream);
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                        if (audioBlob.size < 1000) return;
+                        const text = messageInput.value.trim() || "🎵 Voice Message";
+                        messageInput.value = '';
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => pushPayloadToDB({ text: text, audioUrl: reader.result, sender: myName, createdAt: serverTimestamp(), isEdited: false });
+                        if (activeAudioStream) activeAudioStream.getTracks().forEach(track => track.stop());
+                    };
+                    mediaRecorder.start();
+                    voiceBtn.classList.add('recording');
+                } catch (err) { alert("Mic access denied."); }
+            } else {
+                mediaRecorder.stop();
+                voiceBtn.classList.remove('recording');
+            }
+        }
+        voiceBtn.addEventListener('click', handleVoiceRecordingToggle);
+
+        async function deleteMessage(messageId) {
+            if (confirm("Are you sure you want to delete this message?")) {
+                const targetCol = currentChatMode === "global" ? "messages" : `dms/${currentChatMode}/messages`;
+                await deleteDoc(doc(db, targetCol, messageId));
+            }
+        }
+
+        async function editMessage(messageId, oldText) {
+            const newText = prompt("Edit your message text:", oldText);
+            if (newText !== null && newText.trim() !== oldText) {
+                const targetCol = currentChatMode === "global" ? "messages" : `dms/${currentChatMode}/messages`;
+                await updateDoc(doc(db, targetCol, messageId), { text: newText.trim(), isEdited: true });
+            }
+        }
+
+        // --- Reporting Engine Logic ---
+        async function reportMessage(messageId, messageText, chatMode, senderName) {
+            const reason = prompt("Enter the reason for reporting this message:");
+            if (reason === null) return; 
+            if (reason.trim() === "") {
+                alert("You must supply a reason to report content.");
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "reports"), {
+                    messageId: messageId,
+                    messageText: messageText,
+                    chatMode: chatMode,
+                    sender: senderName,
+                    reporter: myName,
+                    reason: reason.trim(),
+                    status: "pending",
+                    createdAt: serverTimestamp()
+                });
+                alert("Message reported successfully to the development team.");
+            } catch (e) {
+                console.error("Reporting system failure:", e);
+                alert("Database error filing transaction.");
+            }
+        }
+
+        function listenForReports() {
+            if (unsubscribeReports) unsubscribeReports();
+            
+            const q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
+            unsubscribeReports = onSnapshot(q, (snapshot) => {
+                reportsInlineList.innerHTML = '';
+                let pendingCount = 0;
+
+                snapshot.forEach((docSnap) => {
+                    const report = docSnap.data();
+                    if (report.status !== "pending") return;
+
+                    pendingCount++;
+                    const reportId = docSnap.id;
+
+                    const card = document.createElement('div');
+                    card.classList.add('admin-report-card');
+                    card.innerHTML = `
+                        <div><strong>Sender:</strong> ${report.sender}</div>
+                        <div><strong>Reporter:</strong> ${report.reporter}</div>
+                        <div><strong>Reason:</strong> ${report.reason}</div>
+                        <div class="report-text">${report.messageText}</div>
+                        <div class="report-actions">
+                            <button class="admin-report-btn btn-delete">Delete Msg</button>
+                            <button class="admin-report-btn btn-dismiss">Dismiss</button>
+                        </div>
+                    `;
+
+                    card.querySelector('.btn-delete').onclick = () => executeReportResolution(reportId, 'delete', report.chatMode, report.messageId);
+                    card.querySelector('.btn-dismiss').onclick = () => executeReportResolution(reportId, 'dismiss');
+
+                    reportsInlineList.appendChild(card);
+                });
+
+                reportCountBadge.textContent = pendingCount;
+                if (pendingCount === 0) {
+                    reportsInlineList.innerHTML = '<div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No pending reports.</div>';
+                }
+            });
+        }
+
+        async function executeReportResolution(reportId, action, chatMode = null, messageId = null) {
+            try {
+                if (action === 'delete') {
+                    if (!confirm("Confirm immediate administrative deletion?")) return;
+                    const targetCol = chatMode === "global" ? "messages" : `dms/${chatMode}/messages`;
+                    await deleteDoc(doc(db, targetCol, messageId));
+                    await updateDoc(doc(db, "reports", reportId), { status: "resolved_deleted" });
+                } else if (action === 'dismiss') {
+                    await updateDoc(doc(db, "reports", reportId), { status: "dismissed" });
+                }
+            } catch (e) {
+                console.error("Action handler execution fault:", e);
+                alert("Database synchronization failed.");
+            }
+        }
+
+        // --- Admin Action Logic ---
+        adminExecuteBtn.addEventListener('click', async () => {
+            const target = adminTargetUser.value.trim().toLowerCase();
+            const action = adminActionType.value;
+            
+            if (!target) return (adminStatusMsg.textContent = "Enter a username.");
+            if (specialUsers[target]) return (adminStatusMsg.textContent = "Cannot modify other admins.");
+
+            adminStatusMsg.style.color = "var(--text-muted)";
+            adminStatusMsg.textContent = "Executing...";
+
+            try {
+                const targetRef = doc(db, "users", target);
+                const targetDoc = await getDoc(targetRef);
+                
+                if (!targetDoc.exists()) {
+                    adminStatusMsg.style.color = "var(--danger-color)";
+                    return (adminStatusMsg.textContent = "User not found.");
+                }
+
+                let updatePayload = {};
+                if (action === "mute") updatePayload.isMuted = true;
+                if (action === "unmute") updatePayload.isMuted = false;
+                if (action === "ban") updatePayload.isBanned = true;
+                if (action === "unban") updatePayload.isBanned = false;
+
+                await updateDoc(targetRef, updatePayload);
+                adminStatusMsg.style.color = "#2ecc71";
+                adminStatusMsg.textContent = `Success: User ${action}d.`;
+                setTimeout(() => { adminStatusMsg.textContent = ""; adminTargetUser.value = ""; }, 2000);
+            } catch (e) {
+                adminStatusMsg.style.color = "var(--danger-color)";
+                adminStatusMsg.textContent = "Database Error.";
+            }
+        });
+
+        adminVersionBtn.addEventListener('click', async () => {
+            const newVer = adminVersionInput.value.trim();
+            if(!newVer) return;
+            try {
+                await setDoc(doc(db, "config", "app"), { version: newVer }, {merge: true});
+                adminVersionInput.value = "";
+                alert("Version updated globally! All old apps will now lock.");
+            } catch(e) { alert("Failed to update version."); }
+        });
+
+        // --- Update PW & Run ---
+        submitNewPwBtn.addEventListener('click', async () => {
+            const newPassword = newPwInput.value;
+            if (!newPassword || newPassword.trim() === "") return;
+            try {
+                await updateDoc(doc(db, "users", myName.toLowerCase()), { password: newPassword });
+                localStorage.setItem('clause_password', newPassword);
+                pwStatusMsg.style.color = "#2ecc71";
+                pwStatusMsg.textContent = "Updated!";
+                newPwInput.value = "";
+                setTimeout(() => pwInlineForm.classList.remove('active'), 1500);
+            } catch (e) { pwStatusMsg.textContent = "Error updating profile."; }
+        });
+
+        function checkPersistentSession() {
+            const cachedUser = localStorage.getItem('clause_username');
+            const cachedPass = localStorage.getItem('clause_password');
+            if (cachedUser && cachedPass) {
+                authSubtitle.textContent = "Welcome back! Synchronizing profile...";
+                authUsername.value = cachedUser;
+                authPassword.value = cachedPass;
+                handleAuth(true); 
+            }
+        }
+
+        authBtn.addEventListener('click', () => handleAuth(false));
+        authPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuth(false); });
         sendBtn.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+        
+        logoutBtn.addEventListener('click', () => { clearSession(); window.location.reload(); });
+
+        checkPersistentSession();
     </script>
 </body>
 </html>
