@@ -215,6 +215,12 @@
         .admin-report-card .admin-report-btn { flex: 1; padding: 6px; font-size: 0.75rem; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; text-align: center; }
         .admin-report-card .admin-report-btn.btn-delete { background-color: var(--danger-color); }
         .admin-report-card .admin-report-btn.btn-dismiss { background-color: var(--text-muted); }
+
+        /* User Profile Feature Elements Style */
+        .profile-avatar-frame { position: relative; width: 85px; height: 85px; margin: 8px auto; cursor: pointer; border-radius: 50%; overflow: visible; }
+        .profile-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2.5px solid #0084ff; background-color: var(--input-bg); transition: transform 0.2s; }
+        .profile-avatar-frame:active .profile-avatar-img { transform: scale(0.95); }
+        .profile-avatar-badge { position: absolute; bottom: 2px; right: 2px; background-color: #0084ff; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
@@ -229,14 +235,48 @@
             </div>
             <div class="menu-content">
                 
+                <div class="menu-section" style="align-items: center; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 18px; margin-bottom: -5px;">
+                    <div class="menu-label" style="align-self: flex-start;">My Profile</div>
+                    <div class="profile-avatar-frame" id="profile-avatar-trigger" title="Change Avatar Profile Photo">
+                        <img id="profile-avatar-preview" class="profile-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>">
+                        <div class="profile-avatar-badge">📷</div>
+                    </div>
+                    <input type="file" id="profile-pic-input" accept="image/*" style="display: none;">
+                    <input type="text" id="profile-bio-input" class="inline-input" placeholder="Type account biography bio..." maxlength="140" style="margin-top: 6px; text-align: center; font-size: 0.85rem;">
+                    <button class="inline-submit" id="save-profile-btn" style="width: 100%; margin-top: 8px; padding: 10px;">Save Profile Updates</button>
+                    <div class="inline-status" id="profile-status-msg" style="margin-top: 5px; font-weight: 500;"></div>
+                </div>
+
                 <div class="menu-section">
                     <div class="menu-label">Chat Navigation</div>
                     <button class="menu-btn-secondary" id="global-chat-btn">🌍 Global Chat</button>
                     <button class="menu-btn-secondary primary" id="new-dm-btn">💬 Start Direct Message</button>
+                    <button class="menu-btn-secondary primary" id="new-group-btn" style="border-color: #2ecc71; color: #2ecc71;">👥 Create Group Chat</button>
                     
                     <button class="menu-btn-secondary" id="toggle-recent-dms-btn">Recent DMs <span>▼</span></button>
                     <div class="inline-form" id="recent-dms-list" style="max-height: 200px; overflow-y: auto;">
                         <div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No recent DMs</div>
+                    </div>
+
+                    <button class="menu-btn-secondary" id="toggle-groups-btn">Group Chats <span>▼</span></button>
+                    <div class="inline-form" id="groups-list" style="max-height: 200px; overflow-y: auto;">
+                        <div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No group chats</div>
+                    </div>
+                </div>
+
+                <div class="menu-section" id="group-mgmt-section" style="display: none; border-left: 3px solid #0084ff; padding-left: 10px;">
+                    <div class="menu-label" style="color: #0084ff;">Group Management</div>
+                    <button class="menu-btn-secondary" id="toggle-group-members-btn">Members & Actions <span>▼</span></button>
+                    <div class="inline-form" id="group-mgmt-form">
+                        <div id="group-members-list" style="font-size: 0.85rem; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; color: var(--menu-text);"></div>
+                        <div id="group-admin-actions" style="display: none; flex-direction: column; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                            <input type="text" id="group-target-user" class="inline-input" placeholder="Exact Username">
+                            <div style="display: flex; gap: 5px;">
+                                <button class="inline-submit" id="group-add-user-btn" style="flex: 1;">Add</button>
+                                <button class="inline-submit" id="group-promote-btn" style="flex: 1; background-color: #9b59b6;">Admin</button>
+                                <button class="inline-submit danger" id="group-kick-btn" style="flex: 1;">Kick</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -378,7 +418,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, where, arrayRemove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB1kqPJ9YCjlGCQFs-HTDaoFGFftYRzcUo",
@@ -398,8 +438,12 @@
         let unsubscribeMessages = null;
         let unsubscribeUserDoc = null;
         let unsubscribeReports = null;
+        let unsubscribeGroups = null;
+        let unsubscribeCurrentGroup = null;
+        let currentGroupData = null;
         let loadedAppVersion = null; // Used to track and force app updates
         let replyTargetMessage = null; // Stores { id, text, sender } references
+        let stagingCompressedAvatar = null; // Stores runtime canvas image encoding state
 
         const specialUsers = {
             "gloom games": { title: "official", badgeClass: "badge-gloom", wrapperClass: "highlight-gloom" },
@@ -443,11 +487,33 @@
         const githubBtn = document.getElementById('github-btn');
         const steamBtn = document.getElementById('steam-btn');
 
+        // Profile Feature DOM Targets
+        const profileAvatarTrigger = document.getElementById('profile-avatar-trigger');
+        const profileAvatarPreview = document.getElementById('profile-avatar-preview');
+        const profilePicInput = document.getElementById('profile-pic-input');
+        const profileBioInput = document.getElementById('profile-bio-input');
+        const saveProfileBtn = document.getElementById('save-profile-btn');
+        const profileStatusMsg = document.getElementById('profile-status-msg');
+
         // Navigation Elements
         const globalChatBtn = document.getElementById('global-chat-btn');
         const newDmBtn = document.getElementById('new-dm-btn');
         const toggleRecentDmsBtn = document.getElementById('toggle-recent-dms-btn');
         const recentDmsList = document.getElementById('recent-dms-list');
+        const newGroupBtn = document.getElementById('new-group-btn');
+        const toggleGroupsBtn = document.getElementById('toggle-groups-btn');
+        const groupsList = document.getElementById('groups-list');
+
+        // Group Management UI Nodes
+        const groupMgmtSection = document.getElementById('group-mgmt-section');
+        const toggleGroupMembersBtn = document.getElementById('toggle-group-members-btn');
+        const groupMgmtForm = document.getElementById('group-mgmt-form');
+        const groupMembersList = document.getElementById('group-members-list');
+        const groupAdminActions = document.getElementById('group-admin-actions');
+        const groupTargetUser = document.getElementById('group-target-user');
+        const groupAddUserBtn = document.getElementById('group-add-user-btn');
+        const groupPromoteBtn = document.getElementById('group-promote-btn');
+        const groupKickBtn = document.getElementById('group-kick-btn');
 
         // Admin Elements
         const adminPanel = document.getElementById('admin-panel');
@@ -534,7 +600,10 @@
                 adminActionForm.classList.remove('active');
                 versionForm.classList.remove('active');
                 reportsInlineList.classList.remove('active');
-                recentDmsList.classList.remove('active');
+                recentDMsList.classList.remove('active');
+                groupsList.classList.remove('active');
+                groupMgmtForm.classList.remove('active');
+                profileStatusMsg.textContent = "";
             }
         }
         menuBtn.addEventListener('click', () => toggleMenu(true));
@@ -545,7 +614,9 @@
         toggleAdminActionBtn.addEventListener('click', () => adminActionForm.classList.toggle('active'));
         toggleVersionFormBtn.addEventListener('click', () => versionForm.classList.toggle('active'));
         toggleReportsBtn.addEventListener('click', () => reportsInlineList.classList.toggle('active'));
-        toggleRecentDmsBtn.addEventListener('click', () => recentDmsList.classList.toggle('active'));
+        toggleRecentDmsBtn.addEventListener('click', () => recentDMsList.classList.toggle('active'));
+        toggleGroupsBtn.addEventListener('click', () => groupsList.classList.toggle('active'));
+        toggleGroupMembersBtn.addEventListener('click', () => groupMgmtForm.classList.toggle('active'));
 
         githubBtn.addEventListener('click', () => window.open('https://github.com/Ivan4ik123321/Clause-Messenger', '_system'));
         steamBtn.addEventListener('click', () => window.open('https://store.steampowered.com/wishlist/profiles/76561199698088674/', '_system'));
@@ -644,9 +715,14 @@
             authPassword.value = "";
             authSubtitle.textContent = "Enter a name to register or login";
             authError.textContent = "";
+            stagingCompressedAvatar = null;
+            profileAvatarPreview.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>";
+            profileBioInput.value = "";
             if(unsubscribeUserDoc) unsubscribeUserDoc();
             if(unsubscribeMessages) unsubscribeMessages();
             if(unsubscribeReports) unsubscribeReports();
+            if(unsubscribeGroups) unsubscribeGroups();
+            removeGroupMgmtContext();
             adminPanel.classList.remove('active');
             clearReplyMode();
         }
@@ -685,6 +761,14 @@
                         messageInput.placeholder = "Type a message...";
                     }
 
+                    // Populate Profile UI Fields from Firestore state sync
+                    if (data.profilePicture && !stagingCompressedAvatar) {
+                        profileAvatarPreview.src = data.profilePicture;
+                    }
+                    if (data.bio !== undefined && document.activeElement !== profileBioInput) {
+                        profileBioInput.value = data.bio;
+                    }
+
                     // --- Render Recent DMs ---
                     if (data.recentDMs && data.recentDMs.length > 0) {
                         recentDmsList.innerHTML = ''; 
@@ -696,6 +780,7 @@
                             btn.onclick = () => {
                                 currentChatMode = getDmRoomId(myName, dmUser);
                                 chatHeaderTitle.textContent = `DM: ${dmUser}`;
+                                removeGroupMgmtContext();
                                 listenForMessages();
                                 toggleMenu(false);
                                 clearReplyMode();
@@ -708,10 +793,11 @@
                 }
             });
 
+            listenForGroups();
             listenForMessages();
         }
 
-        // --- Chat Context Switching (Global vs DM) ---
+        // --- Chat Context Switching (Global vs DM vs Group) ---
         function getDmRoomId(u1, u2) {
             return [u1.toLowerCase(), u2.toLowerCase()].sort().join("_");
         }
@@ -719,6 +805,7 @@
         globalChatBtn.addEventListener('click', () => {
             currentChatMode = "global";
             chatHeaderTitle.textContent = `Clause Messenger`;
+            removeGroupMgmtContext();
             listenForMessages();
             toggleMenu(false);
             clearReplyMode();
@@ -751,11 +838,177 @@
                 
                 currentChatMode = getDmRoomId(myName, targetLower);
                 chatHeaderTitle.textContent = `DM: ${targetDoc.data().displayName}`;
+                removeGroupMgmtContext();
                 listenForMessages();
                 toggleMenu(false);
                 clearReplyMode();
             } catch(e) {
                 console.error("DM Error:", e);
+            }
+        });
+
+        // --- Group Chat System Mechanics ---
+        newGroupBtn.addEventListener('click', async () => {
+            const gName = prompt("Enter a name for your new group chat:");
+            if (!gName || gName.trim() === "") return;
+
+            try {
+                await addDoc(collection(db, "groups"), {
+                    name: gName.trim(),
+                    createdBy: myName,
+                    members: [myName.toLowerCase()],
+                    admins: [myName.toLowerCase()],
+                    createdAt: serverTimestamp()
+                });
+                alert(`Group "${gName.trim()}" successfully provisioned.`);
+            } catch (e) {
+                console.error(e);
+                alert("Failed to initialize group.");
+            }
+        });
+
+        function listenForGroups() {
+            if (unsubscribeGroups) unsubscribeGroups();
+            const q = query(collection(db, "groups"), where("members", "array-contains", myName.toLowerCase()));
+
+            unsubscribeGroups = onSnapshot(q, (snapshot) => {
+                groupsList.innerHTML = '';
+                if (snapshot.empty) {
+                    groupsList.innerHTML = '<div style="font-size: 0.8rem; text-align: center; color: var(--text-muted);">No group chats</div>';
+                    return;
+                }
+                snapshot.forEach((docSnap) => {
+                    const gData = docSnap.data();
+                    const gId = docSnap.id;
+                    const btn = document.createElement('button');
+                    btn.className = 'menu-btn-secondary';
+                    btn.style.padding = '8px';
+                    btn.textContent = `👥 ${gData.name}`;
+                    btn.onclick = () => {
+                        currentChatMode = `group_${gId}`;
+                        chatHeaderTitle.textContent = `Group: ${gData.name}`;
+                        setupGroupManagement(gId);
+                        listenForMessages();
+                        toggleMenu(false);
+                        clearReplyMode();
+                    };
+                    groupsList.appendChild(btn);
+                });
+            });
+        }
+
+        function setupGroupManagement(groupId) {
+            if (unsubscribeCurrentGroup) unsubscribeCurrentGroup();
+            groupMgmtSection.style.display = 'flex';
+
+            unsubscribeCurrentGroup = onSnapshot(doc(db, "groups", groupId), (docSnap) => {
+                if (!docSnap.exists()) {
+                    removeGroupMgmtContext();
+                    if (currentChatMode === `group_${groupId}`) {
+                        alert("This group chat has been dismantled.");
+                        globalChatBtn.click();
+                    }
+                    return;
+                }
+
+                const data = docSnap.data();
+                currentGroupData = data;
+                currentGroupData.id = groupId;
+
+                // Client-side ejection fallback validation
+                if (!data.members.includes(myName.toLowerCase())) {
+                    removeGroupMgmtContext();
+                    if (currentChatMode === `group_${groupId}`) {
+                        alert("You have been kicked from this group chat.");
+                        globalChatBtn.click();
+                    }
+                    return;
+                }
+
+                const iAmGroupAdmin = data.admins.includes(myName.toLowerCase());
+                
+                // Redraw Group Member list node states
+                groupMembersList.innerHTML = '<strong>Members:</strong>';
+                data.members.forEach(member => {
+                    const isGroupAdmin = data.admins.includes(member.toLowerCase());
+                    const item = document.createElement('div');
+                    item.style.fontSize = '0.8rem';
+                    item.textContent = `• ${member}${isGroupAdmin ? ' (Admin)' : ''}`;
+                    groupMembersList.appendChild(item);
+                });
+
+                groupAdminActions.style.display = iAmGroupAdmin ? 'flex' : 'none';
+            });
+        }
+
+        function removeGroupMgmtContext() {
+            if (unsubscribeCurrentGroup) {
+                unsubscribeCurrentGroup();
+                unsubscribeCurrentGroup = null;
+            }
+            currentGroupData = null;
+            groupMgmtSection.style.display = 'none';
+            groupMgmtForm.classList.remove('active');
+        }
+
+        groupAddUserBtn.addEventListener('click', async () => {
+            if (!currentGroupData) return;
+            const target = groupTargetUser.value.trim();
+            if (!target) return alert("Enter a valid target user registration name.");
+            const targetLower = target.toLowerCase();
+
+            try {
+                const targetDoc = await getDoc(doc(db, "users", targetLower));
+                if (!targetDoc.exists()) return alert("User configuration profile could not be found.");
+                
+                await updateDoc(doc(db, "groups", currentGroupData.id), {
+                    members: arrayUnion(targetLower)
+                });
+                alert(`Added ${targetDoc.data().displayName} to the group.`);
+                groupTargetUser.value = "";
+            } catch (e) {
+                alert("Failed to append member element.");
+            }
+        });
+
+        groupPromoteBtn.addEventListener('click', async () => {
+            if (!currentGroupData) return;
+            const target = groupTargetUser.value.trim().toLowerCase();
+            if (!target) return alert("Enter target username.");
+
+            if (!currentGroupData.members.includes(target)) {
+                return alert("Target entity must be a baseline member of this group first.");
+            }
+
+            try {
+                await updateDoc(doc(db, "groups", currentGroupData.id), {
+                    admins: arrayUnion(target)
+                });
+                alert(`Promoted ${target} to Group Administrator status.`);
+                groupTargetUser.value = "";
+            } catch (e) {
+                alert("Failed to write admin state mapping transformation.");
+            }
+        });
+
+        groupKickBtn.addEventListener('click', async () => {
+            if (!currentGroupData) return;
+            const target = groupTargetUser.value.trim().toLowerCase();
+            if (!target) return alert("Enter target username.");
+
+            if (target === myName.toLowerCase()) {
+                return alert("Self-ejection processing rules denied inside management panels.");
+            }
+
+            try {
+                await updateDoc(doc(db, "groups", currentGroupData.id), {
+                    members: arrayRemove(target),
+                    admins: arrayRemove(target)
+                });
+                alert(`Kicked user ${target} from the group context.`);
+                groupTargetUser.value = "";
+            } catch (e) {
+                alert("Processing disruption handling user elimination.");
             }
         });
 
@@ -780,9 +1033,15 @@
             if (unsubscribeMessages) unsubscribeMessages();
             chatMessages.innerHTML = ''; 
 
-            let colRef = currentChatMode === "global" 
-                ? collection(db, "messages") 
-                : collection(db, "dms", currentChatMode, "messages");
+            let colRef;
+            if (currentChatMode === "global") {
+                colRef = collection(db, "messages");
+            } else if (currentChatMode.startsWith("group_")) {
+                const groupId = currentChatMode.replace("group_", "");
+                colRef = collection(db, "groups", groupId, "messages");
+            } else {
+                colRef = collection(db, "dms", currentChatMode, "messages");
+            }
 
             const q = query(colRef, orderBy("createdAt"));
             
@@ -891,8 +1150,14 @@
 
                     const iAmAdmin = !!specialUsers[myNameLower];
                     const senderIsAdmin = !!specialUsers[senderLower];
+                    
+                    let iAmGroupAdmin = false;
+                    if (currentChatMode.startsWith("group_") && currentGroupData) {
+                        iAmGroupAdmin = currentGroupData.admins.includes(myNameLower);
+                    }
+
                     const canEdit = isMe && !isMuted;
-                    const canDelete = isMe || (iAmAdmin && !senderIsAdmin);
+                    const canDelete = isMe || (iAmAdmin && !senderIsAdmin) || (currentChatMode.startsWith("group_") && iAmGroupAdmin);
                     const canReport = !isMe && !isMuted;
 
                     if (canEdit || canDelete || canReport) {
@@ -945,7 +1210,16 @@
                 clearReplyMode();
             }
 
-            const targetCol = currentChatMode === "global" ? collection(db, "messages") : collection(db, "dms", currentChatMode, "messages");
+            let targetCol;
+            if (currentChatMode === "global") {
+                targetCol = collection(db, "messages");
+            } else if (currentChatMode.startsWith("group_")) {
+                const groupId = currentChatMode.replace("group_", "");
+                targetCol = collection(db, "groups", groupId, "messages");
+            } else {
+                targetCol = collection(db, "dms", currentChatMode, "messages");
+            }
+
             await addDoc(targetCol, payloadObj);
         }
 
@@ -1028,7 +1302,15 @@
 
         async function deleteMessage(messageId) {
             if (confirm("Are you sure you want to delete this message?")) {
-                const targetCol = currentChatMode === "global" ? "messages" : `dms/${currentChatMode}/messages`;
+                let targetCol;
+                if (currentChatMode === "global") {
+                    targetCol = "messages";
+                } else if (currentChatMode.startsWith("group_")) {
+                    const groupId = currentChatMode.replace("group_", "");
+                    targetCol = `groups/${groupId}/messages`;
+                } else {
+                    targetCol = `dms/${currentChatMode}/messages`;
+                }
                 await deleteDoc(doc(db, targetCol, messageId));
             }
         }
@@ -1036,7 +1318,15 @@
         async function editMessage(messageId, oldText) {
             const newText = prompt("Edit your message text:", oldText);
             if (newText !== null && newText.trim() !== oldText) {
-                const targetCol = currentChatMode === "global" ? "messages" : `dms/${currentChatMode}/messages`;
+                let targetCol;
+                if (currentChatMode === "global") {
+                    targetCol = "messages";
+                } else if (currentChatMode.startsWith("group_")) {
+                    const groupId = currentChatMode.replace("group_", "");
+                    targetCol = `groups/${groupId}/messages`;
+                } else {
+                    targetCol = `dms/${currentChatMode}/messages`;
+                }
                 await updateDoc(doc(db, targetCol, messageId), { text: newText.trim(), isEdited: true });
             }
         }
@@ -1113,7 +1403,15 @@
             try {
                 if (action === 'delete') {
                     if (!confirm("Confirm immediate administrative deletion?")) return;
-                    const targetCol = chatMode === "global" ? "messages" : `dms/${chatMode}/messages`;
+                    let targetCol;
+                    if (chatMode === "global") {
+                        targetCol = "messages";
+                    } else if (chatMode.startsWith("group_")) {
+                        const groupId = chatMode.replace("group_", "");
+                        targetCol = `groups/${groupId}/messages`;
+                    } else {
+                        targetCol = `dms/${chatMode}/messages`;
+                    }
                     await deleteDoc(doc(db, targetCol, messageId));
                     await updateDoc(doc(db, "reports", reportId), { status: "resolved_deleted" });
                 } else if (action === 'dismiss') {
@@ -1183,6 +1481,91 @@
                 newPwInput.value = "";
                 setTimeout(() => pwInlineForm.classList.remove('active'), 1500);
             } catch (e) { pwStatusMsg.textContent = "Error updating profile."; }
+        });
+
+        // --- Profile Asset Management & Compression Loop ---
+        function parseAndCompressAvatarFile(file) {
+            if (!file) return;
+            
+            // Failsafe threshold checking
+            if (file.size > 8 * 1024 * 1024) {
+                alert("File size exceeds maximum 8MB limit.");
+                return;
+            }
+
+            profileStatusMsg.style.color = "var(--text-muted)";
+            profileStatusMsg.textContent = "Processing image...";
+
+            const fileReader = new FileReader();
+            fileReader.readAsDataURL(file);
+            fileReader.onload = (readEvent) => {
+                const imgNode = new Image();
+                imgNode.src = readEvent.target.result;
+                imgNode.onload = () => {
+                    const canvasElement = document.createElement('canvas');
+                    const targetBoundLimit = 250; // Bounds restriction matrix size (250x250 max)
+                    let currentWidth = imgNode.width;
+                    let currentHeight = imgNode.height;
+
+                    if (currentWidth > currentHeight) {
+                        if (currentWidth > targetBoundLimit) {
+                            currentHeight *= targetBoundLimit / currentWidth;
+                            currentWidth = targetBoundLimit;
+                        }
+                    } else {
+                        if (currentHeight > targetBoundLimit) {
+                            currentWidth *= targetBoundLimit / currentHeight;
+                            currentHeight = targetBoundLimit;
+                        }
+                    }
+
+                    canvasElement.width = currentWidth;
+                    canvasElement.height = currentHeight;
+                    const canvasContext = canvasElement.getContext('2d');
+                    canvasContext.drawImage(imgNode, 0, 0, currentWidth, currentHeight);
+                    
+                    // Down-convert to standard JPEG format matrix at 0.7 compression factor factor
+                    stagingCompressedAvatar = canvasElement.toDataURL('image/jpeg', 0.7);
+                    profileAvatarPreview.src = stagingCompressedAvatar;
+                    profileStatusMsg.style.color = "#0084ff";
+                    profileStatusMsg.textContent = "Photo staged! Click save below.";
+                };
+            };
+        }
+
+        profileAvatarTrigger.addEventListener('click', () => {
+            if (!isMuted) profilePicInput.click();
+        });
+
+        profilePicInput.addEventListener('change', (e) => {
+            parseAndCompressAvatarFile(e.target.files[0]);
+        });
+
+        saveProfileBtn.addEventListener('click', async () => {
+            if (isMuted || !myName) return;
+
+            const structuredBio = profileBioInput.value.trim();
+            profileStatusMsg.style.color = "var(--text-muted)";
+            profileStatusMsg.textContent = "Writing profiles...";
+
+            try {
+                const targetRef = doc(db, "users", myName.toLowerCase());
+                const updatePayload = { bio: structuredBio };
+                
+                if (stagingCompressedAvatar) {
+                    updatePayload.profilePicture = stagingCompressedAvatar;
+                }
+
+                await updateDoc(targetRef, updatePayload);
+                stagingCompressedAvatar = null;
+                profileStatusMsg.style.color = "#2ecc71";
+                profileStatusMsg.textContent = "Profile updated successfully!";
+                setTimeout(() => { if (profileStatusMsg.textContent.includes("successfully")) profileStatusMsg.textContent = ""; }, 2500);
+            } catch (err) {
+                console.error("Profile synchronization crash:", err);
+                profileStatusMsg.style.color = "var(--danger-color)";
+                profileStatusMsg.textContent = "Update failed. Server sync issue.";
+            }
         });
 
         function checkPersistentSession() {
